@@ -425,29 +425,42 @@
      */
     function handleCSVText(text, messageDiv, isFilteredByRow, rowStart, rowEnd, filters) {
         let lines = text.trim().split('\n').filter(line => line.trim() !== '');
-
+    
         if (lines.length === 0) {
              messageDiv.textContent = "❗ Data CSV kosong.";
              document.getElementById('flashcard').style.display = 'none';
              return;
         }
-
+    
         const firstLine = lines[0];
         let delimiter = ',';
         if (firstLine.includes(';')) {
             delimiter = ';';
         }
-
+    
+        // --- PERBAIKAN: Hapus Baris Header (Baris 1) SEBELUM Filtering Baris ---
+        if (lines.length > 0) {
+            lines.shift(); // Hapus Baris 1 (Header: A1/B1)
+        }
+        // CATATAN: Baris 2 (A2/B2) kini menjadi Baris 1 dalam array 'lines' (indeks 0).
+        // -----------------------------------------------------------------------
+    
         // --- Terapkan Filter Baris (Vertikal) ---
+        // Karena header sudah dihapus, 'rowStart' (misal 2) kini merujuk ke Baris ke-2 dari data ASLI.
         if (isFilteredByRow) {
+            // Mengubah input baris (2-based) ke indeks (0-based) setelah header dihapus.
+            // Input '2' (Baris data ke-2) menjadi index 1
+            const correctedRowStart = Math.max(0, rowStart - 2); 
+            const correctedRowEnd = rowEnd === Infinity ? Infinity : rowEnd - 1;
+            
             // slice(start index, end index exclusive)
-            lines = lines.slice(rowStart, rowEnd); 
+            lines = lines.slice(correctedRowStart, correctedRowEnd); 
         }
         // ----------------------------------------
         
         const qIndex = 0; 
         const aIndex = 1;
-
+    
         // Parsing Data Mentah (Q dari Kolom 1 dan A dari Kolom 2)
         rawData = lines.map(line => {
             const columns = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
@@ -461,11 +474,10 @@
             return ['', '']; 
         }).filter(item => item[0] !== '' && item[1] !== ''); // Filter baris kosong
         
-        // Hapus header jika baris pertama (yang tersisa setelah filtering) bukan angka
-        if (rawData.length > 0 && isNaN(rawData[0][0])) {
-            rawData.shift(); 
-        }
-
+        // --- PEMBERSIHAN BARIS HEADER LAMA DIHAPUS ---
+        // Logika pembersihan header sudah tidak diperlukan di sini karena sudah dilakukan di awal
+        // ---------------------------------------------
+    
         // Terapkan Filter Teks
         let filteredData = rawData;
         if (filters.length > 0) {
@@ -474,7 +486,7 @@
                 return filters.some(filter => itemText.includes(filter));
             });
         }
-
+    
         shuffleArray(filteredData);
         shuffledData = filteredData;
         currentCardIndex = 0;
@@ -486,11 +498,13 @@
              document.getElementById('flashcard').style.display = 'none';
              return;
         }
-
+    
         document.getElementById('totalCards').textContent = shuffledData.length;
         document.getElementById('flashcard').style.display = 'block';
         
-        const rowMessage = isFilteredByRow ? ` dari Baris ${rowStart + 1} hingga ${rowEnd === Infinity ? 'akhir' : rowEnd}` : '';
+        // Pesan kini lebih akurat
+        const displayStart = rowStart > 1 ? rowStart : 2; // Tampilkan 2 jika start = 1 (karena header dianggap 1)
+        const rowMessage = isFilteredByRow ? ` dari Baris Data ${displayStart} hingga ${rowEnd === Infinity ? 'akhir' : rowEnd}` : '';
         messageDiv.textContent = `✅ Berhasil memuat dan mengacak ${shuffledData.length} pasangan data${rowMessage}.`;
         
         displayCard(false); 
@@ -660,3 +674,4 @@
 
 </body>
 </html>
+
