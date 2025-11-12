@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CSV Shuffler & Memorizer (Colorful UI/UX)</title>
+    <title>CSV Shuffler & Memorizer (Colorful UI/UX & Column Filter)</title>
     <style>
         /* --- SKEMA WARNA BARU & Global Styles --- */
         :root {
@@ -37,10 +37,10 @@
         .container {
             position: relative;
             z-index: 10;
-            max-width: 650px; /* Lebih lebar */
+            max-width: 650px;
             width: 100%;
             padding: 30px;
-            background: rgba(18, 41, 64, 0.95); /* Sedikit lebih terang dari BG */
+            background: rgba(18, 41, 64, 0.95);
             border-radius: 16px;
             box-shadow: 0 15px 40px var(--shadow-dark), 0 0 0 1px rgba(255, 255, 255, 0.05);
             text-align: center;
@@ -51,16 +51,16 @@
 
         /* --- Bagian Pemuatan (Load Section) --- */
         #load-section {
-            background-color: #1b3a5d; /* Warna latar belakang loading */
+            background-color: #1b3a5d;
             padding: 20px;
             border-radius: 12px;
             margin-bottom: 30px;
             border: 1px solid #334e6e;
         }
 
-        /* FITUR 4: Filter Input */
+        /* Input Group Styles */
         .input-group { margin-bottom: 15px; }
-        #filterInput {
+        #filterInput, #columnRangeInput {
             display: block !important;
             padding: 12px;
             border-radius: 8px;
@@ -85,11 +85,6 @@
             color: var(--primary-color);
         }
         .custom-file-upload:hover { background-color: rgba(0, 188, 212, 0.2); }
-
-	/* --- Input & Button Styles --- */
-        input[type="file"] { 
-            display: none !important; /* Tambahkan !important jika perlu */
-        }
 
         /* --- Tombol Aksi --- */
         button {
@@ -122,7 +117,7 @@
         .controls { display: flex; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
         
         #nextBtn { 
-            background-color: var(--secondary-color); /* Oranye */
+            background-color: var(--secondary-color);
             box-shadow: 0 5px 15px rgba(255, 87, 34, 0.4);
         }
         #nextBtn:hover { 
@@ -131,7 +126,7 @@
         }
 
         #toggleBtn { 
-            background-color: var(--primary-color); /* Cyan */
+            background-color: var(--primary-color);
             box-shadow: 0 5px 15px rgba(0, 188, 212, 0.4);
         }
         #toggleBtn:hover { 
@@ -141,7 +136,7 @@
         
         /* FITUR 1: Reverse Button */
         #reverseBtn { 
-            background-color: var(--toggle-btn-color); /* Ungu */
+            background-color: var(--toggle-btn-color);
             box-shadow: 0 5px 15px rgba(156, 39, 176, 0.4);
         }
         #reverseBtn:hover { 
@@ -149,13 +144,12 @@
             transform: translateY(-2px);
         }
 
-
-        /* --- Flashcard Styles --- */
+        /* --- Flashcard Styles & Animations --- */
         #flashcard {
             padding: 40px; border-radius: 16px; background-color: var(--card-color);
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 0, 0, 0.4);
             min-height: 180px; display: none; 
-            border-bottom: 5px solid var(--secondary-color); /* Garis tegas di bawah */
+            border-bottom: 5px solid var(--secondary-color);
             transition: transform 0.5s ease-out, opacity 0.5s ease-out;
             transform-origin: center center; position: relative;
         }
@@ -172,14 +166,18 @@
             margin-top: 15px; 
             font-weight: 500; 
             text-shadow: 0 0 8px rgba(0, 188, 212, 0.6); 
+            opacity: 1; height: auto; visibility: visible;
+            transition: opacity 0.4s ease-in-out, visibility 0s, margin 0.4s ease-in-out;
         }
         .hidden-visual { 
             opacity: 0 !important; height: 0 !important; visibility: hidden !important; 
             margin-top: 0 !important; 
+            transition: opacity 0.4s ease-in-out, visibility 0s linear 0.4s, margin 0.4s ease-in-out;
         }
         .hidden-visual.visible { 
             opacity: 1 !important; height: auto !important; visibility: visible !important; 
             margin-top: 15px !important;
+            transition: opacity 0.4s ease-in-out, visibility 0s linear 0s, margin 0.4s ease-in-out;
         }
         
         /* KELAS UNTUK ANIMASI */
@@ -201,6 +199,11 @@
             transition: width 0.3s ease;
         }
         
+        /* Menyembunyikan input file bawaan */
+        input[type="file"] {
+            display: none;
+        }
+
         /* Media Query untuk Mobile */
         @media (max-width: 650px) {
             .container { padding: 20px; }
@@ -226,11 +229,15 @@
             <div class="input-group">
                 <input type="text" id="filterInput" placeholder="Filter teks: Pisahkan dengan koma jika lebih dari satu (opsional)">
             </div>
+            
+            <div class="input-group">
+                <input type="text" id="columnRangeInput" placeholder="Rentang Kolom: Contoh 1-2 atau 5-10 (Q dan A diambil dari kolom tersebut)">
+            </div>
 
             <label for="csvFile" class="custom-file-upload">
                 📂 Pilih File CSV
             </label>
-            <input type="file" id="csvFile" accept=".csv" onchange="displayFileName()">
+            <input type="file" id="csvFile" accept=".csv">
             <span id="fileNameDisplay" style="display: block; margin-bottom: 15px; font-style: italic; color: #a0b0c0;">Belum ada file dipilih.</span>
 
             <button id="loadBtn" onclick="processCSV()">▶️ Muat & Acak Data</button>
@@ -275,7 +282,7 @@
     let rawData = [];
     let shuffledData = [];
     let currentCardIndex = 0;
-    let isReversed = false; // FITUR 1: Reverse Mode
+    let isReversed = false; 
     
     const animationEffects = ['slide-out-right', 'slide-out-left', 'zoom-out', 'flip-out'];
     
@@ -297,7 +304,7 @@
         }
     }
     
-    // FITUR 6: Update Progress Bar
+    // FITUR 6: Update Progress Bar (Logika Looping)
     function updateProgress() {
         const total = shuffledData.length;
         // currentCardIndex menunjukkan kartu yang BARU SAJA TAMPIL
@@ -317,10 +324,11 @@
 
     function processCSV() {
         const fileInput = document.getElementById('csvFile');
-        // FITUR 4: Ambil dan pisahkan filter (jika ada koma)
         const filterTextRaw = document.getElementById('filterInput').value.trim().toLowerCase();
         const filters = filterTextRaw ? filterTextRaw.split(',').map(f => f.trim()).filter(f => f.length > 0) : [];
         
+        displayFileName(); 
+
         const file = fileInput.files[0];
         const messageDiv = document.getElementById('message');
         
@@ -328,6 +336,26 @@
             messageDiv.textContent = "❗ Pilih file CSV dulu!";
             return;
         }
+
+        // --- LOGIKA BARU UNTUK RENTANG KOLOM ---
+        const rangeInput = document.getElementById('columnRangeInput').value.trim();
+        let colStart = 1;
+        let colEnd = 2; // Default Q=Col 1, A=Col 2
+
+        if (rangeInput) {
+            const parts = rangeInput.split('-');
+            if (parts.length === 2 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1]))) {
+                colStart = Math.max(1, parseInt(parts[0]));
+                colEnd = parseInt(parts[1]);
+                if (colStart > colEnd) [colStart, colEnd] = [colEnd, colStart]; // Swap if start > end
+            } else if (parts.length === 1 && !isNaN(parseInt(parts[0]))) {
+                // Jika hanya satu angka (misalnya "5"), maka Q dan A adalah kolom yang sama
+                colStart = colEnd = Math.max(1, parseInt(parts[0])); 
+            }
+        }
+        const qIndex = colStart - 1; // Konversi ke index array (0-based)
+        const aIndex = colEnd - 1;   // Konversi ke index array (0-based)
+        // ----------------------------------------
 
         const reader = new FileReader();
 
@@ -347,24 +375,28 @@
                 delimiter = ';';
             }
 
-            // Parsing Data Mentah
+            // Parsing Data Mentah menggunakan INDEKS KOLOM BARU
             rawData = lines.map(line => {
-                const columns = line.split(delimiter);
-                const question = columns[0] ? columns[0].trim().replace(/^"|"$/g, '') : '';
-                const answer = columns[1] ? columns[1].trim().replace(/^"|"$/g, '') : '';
-                return [question, answer]; 
-            }).filter(item => item[0] !== '' && item[1] !== '');
+                const columns = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+                
+                // Pastikan kolom yang diminta tersedia
+                if (columns.length > qIndex && columns.length > aIndex) {
+                    const question = columns[qIndex];
+                    const answer = columns[aIndex];
+                    return [question, answer];
+                }
+                return ['', '']; 
+            }).filter(item => item[0] !== '' && item[1] !== ''); // Filter baris kosong
             
             // Hapus header jika baris pertama bukan angka
             if (rawData.length > 0 && isNaN(rawData[0][0])) {
                 rawData.shift(); 
             }
 
-            // FITUR 4: Terapkan Filter
+            // FITUR 4: Terapkan Filter Teks
             let filteredData = rawData;
             if (filters.length > 0) {
                 filteredData = rawData.filter(item => {
-                    // Cek apakah Q atau A mengandung setidaknya satu dari filter
                     const itemText = (item[0] + ' ' + item[1]).toLowerCase();
                     return filters.some(filter => itemText.includes(filter));
                 });
@@ -377,16 +409,15 @@
             if (shuffledData.length === 0) {
                  messageDiv.textContent = filters.length > 0
                     ? `❗ Data kosong atau tidak ada yang cocok dengan filter. (${filters.join(', ')})`
-                    : "❗ Data CSV kosong atau format tidak valid (min 2 kolom).";
+                    : "❗ Data CSV kosong atau rentang kolom tidak valid.";
                  document.getElementById('flashcard').style.display = 'none';
                  return;
             }
 
             document.getElementById('totalCards').textContent = shuffledData.length;
             document.getElementById('flashcard').style.display = 'block';
-            messageDiv.textContent = `✅ Berhasil memuat dan mengacak ${shuffledData.length} pasangan data.`;
+            messageDiv.textContent = `✅ Berhasil memuat dan mengacak ${shuffledData.length} pasangan data. Q dari Kolom ${colStart}, A dari Kolom ${colEnd}.`;
             
-            // Inisialisasi kartu
             displayCard(false); 
             updateProgress();
         };
@@ -413,7 +444,6 @@
 
         const data = shuffledData[currentCardIndex];
         const answerEl = document.getElementById('cardAnswer');
-        const questionEl = document.getElementById('cardQuestion');
         const toggleButton = document.getElementById('toggleBtn');
 
         let q = data[0]; 
@@ -422,8 +452,7 @@
         // FITUR 1: Reverse Mode
         if (isReversed) [q, a] = [a, q];
 
-        // Tampilkan Pertanyaan/Jawaban
-        questionEl.textContent = q || "Kosong";
+        document.getElementById('cardQuestion').textContent = q || "Kosong";
         answerEl.textContent = a || "Kosong";
 
         if (showAnswer) {
@@ -447,43 +476,35 @@
     }
 
     /**
-     * Logika Next Card dengan Animasi dan Reflow Fix
+     * Logika Next Card dengan Animasi dan Looping
      */
     function nextCard() {
         if (shuffledData.length === 0) return;
 
         const flashcardEl = document.getElementById('flashcard');
         
-        // 1. Pilih efek keluar acak
         const randomEffect = animationEffects[Math.floor(Math.random() * animationEffects.length)];
         
-        // 2. Terapkan efek keluar
         flashcardEl.classList.add(randomEffect);
         
-        // 3. Tunggu transisi keluar (500ms)
         setTimeout(() => {
-            // Hapus kelas efek keluar
             flashcardEl.classList.remove(randomEffect);
 
-            // Pindah ke kartu berikutnya (putar siklus)
+            // LOGIKA LOOPING: Kembali ke 0 jika sudah di akhir.
             currentCardIndex = (currentCardIndex + 1) % shuffledData.length;
 
-            // Muat data kartu baru (pastikan jawaban tersembunyi)
             displayCard(false); 
             
-            // 4. Atur ulang ke kondisi awal transisi masuk (paksa reset)
             flashcardEl.classList.add('reset-transform');
             
-            // FIX PENTING: Paksa reflow
             void flashcardEl.offsetHeight; 
             
-            // 5. Memicu Transisi Masuk: Hapus kelas reset
             flashcardEl.classList.remove('reset-transform');
             
             // FITUR 6: Update progress bar
             updateProgress();
 
-        }, 500); // Harus sama dengan durasi transisi di CSS (0.5s)
+        }, 500); 
     }
 </script>
 
