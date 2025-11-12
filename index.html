@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CSV Shuffler & Memorizer (Colorful UI/UX & Row Filter)</title>
+    <title>CSV Shuffler & Memorizer (URL & Row Filter)</title>
     <style>
         /* --- SKEMA WARNA BARU & Global Styles --- */
         :root {
@@ -60,7 +60,7 @@
 
         /* Input Group Styles */
         .input-group { margin-bottom: 15px; }
-        #filterInput, #columnRangeInput {
+        #filterInput, #columnRangeInput, #urlInput {
             display: block !important;
             padding: 12px;
             border-radius: 8px;
@@ -222,10 +222,14 @@
     <div class="container">
         <h1>✨ Flashcard Belajar CSV</h1>
         
-        <p style="color: #a0b0c0; margin-bottom: 25px;">Unggah file, atur filter, dan mulai belajar dengan mode acak.</p>
+        <p style="color: #a0b0c0; margin-bottom: 25px;">Unggah file, atau masukkan URL CSV, atur filter, dan mulai belajar.</p>
         
         <div id="load-section">
             
+            <div class="input-group">
+                <input type="text" id="urlInput" placeholder="Masukkan URL CSV publik (misal Google Sheets 'output=csv')">
+            </div>
+
             <div class="input-group">
                 <input type="text" id="filterInput" placeholder="Filter teks: Pisahkan dengan koma jika lebih dari satu (opsional)">
             </div>
@@ -238,7 +242,7 @@
                 📂 Pilih File CSV
             </label>
             <input type="file" id="csvFile" accept=".csv">
-            <span id="fileNameDisplay" style="display: block; margin-bottom: 15px; font-style: italic; color: #a0b0c0;">Belum ada file dipilih.</span>
+            <span id="fileNameDisplay" style="display: block; margin-bottom: 15px; font-style: italic; color: #a0b0c0;">Belum ada file dipilih atau gunakan URL di atas.</span>
 
             <button id="loadBtn" onclick="processCSV()">▶️ Muat & Acak Data</button>
         </div>
@@ -290,10 +294,15 @@
     function displayFileName() {
         const fileInput = document.getElementById('csvFile');
         const display = document.getElementById('fileNameDisplay');
-        if (fileInput.files.length > 0) {
-            display.textContent = `File terpilih: ${fileInput.files[0].name}`;
+        const file = fileInput.files[0];
+
+        if (file) {
+            display.textContent = `File terpilih: ${file.name}`;
+            document.getElementById('urlInput').value = ''; // Clear URL if file is selected
+        } else if (document.getElementById('urlInput').value.trim()) {
+             display.textContent = `Menggunakan data dari URL.`;
         } else {
-            display.textContent = "Belum ada file dipilih.";
+            display.textContent = "Belum ada file dipilih atau URL dimasukkan.";
         }
     }
 
@@ -307,12 +316,10 @@
     // FITUR 6: Update Progress Bar (Logika Looping)
     function updateProgress() {
         const total = shuffledData.length;
-        // currentCardIndex menunjukkan kartu yang BARU SAJA TAMPIL
         let percentage = (currentCardIndex / total) * 100;
         
         document.getElementById('progressBar').style.width = percentage.toFixed(2) + '%';
         
-        // Pesan Sesi Selesai (Saat loop kembali ke 0)
         if (currentCardIndex === 0 && total > 0) {
              document.getElementById('message').textContent = "🎉 Sesi belajar selesai! File diacak ulang. Klik 'Kartu Berikutnya' untuk memulai.";
         } else if (currentCardIndex !== 0) {
@@ -320,121 +327,148 @@
         }
     }
 
+    /**
+     * FUNGSI UMUM UNTUK MEMPROSES TEXT CSV (baik dari File maupun URL)
+     */
+    function handleCSVText(text, messageDiv, isFilteredByRow, rowStart, rowEnd, filters) {
+        let lines = text.trim().split('\n').filter(line => line.trim() !== '');
+
+        if (lines.length === 0) {
+             messageDiv.textContent = "❗ Data CSV kosong.";
+             document.getElementById('flashcard').style.display = 'none';
+             return;
+        }
+
+        const firstLine = lines[0];
+        let delimiter = ',';
+        if (firstLine.includes(';')) {
+            delimiter = ';';
+        }
+
+        // --- Terapkan Filter Baris (Vertikal) ---
+        if (isFilteredByRow) {
+            // slice(start index, end index exclusive)
+            lines = lines.slice(rowStart, rowEnd); 
+        }
+        // ----------------------------------------
+        
+        const qIndex = 0; 
+        const aIndex = 1;
+
+        // Parsing Data Mentah (Q dan A dari Kolom 1 dan 2)
+        rawData = lines.map(line => {
+            const columns = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+            
+            // Pastikan kolom 1 dan 2 ada
+            if (columns.length > qIndex && columns.length > aIndex) {
+                const question = columns[qIndex];
+                const answer = columns[aIndex];
+                return [question, answer];
+            }
+            return ['', '']; 
+        }).filter(item => item[0] !== '' && item[1] !== ''); // Filter baris kosong
+        
+        // Hapus header jika baris pertama (yang tersisa setelah filtering) bukan angka
+        if (rawData.length > 0 && isNaN(rawData[0][0])) {
+            rawData.shift(); 
+        }
+
+        // FITUR 4: Terapkan Filter Teks
+        let filteredData = rawData;
+        if (filters.length > 0) {
+            filteredData = rawData.filter(item => {
+                const itemText = (item[0] + ' ' + item[1]).toLowerCase();
+                return filters.some(filter => itemText.includes(filter));
+            });
+        }
+
+        shuffleArray(filteredData);
+        shuffledData = filteredData;
+        currentCardIndex = 0;
+        
+        if (shuffledData.length === 0) {
+             messageDiv.textContent = filters.length > 0
+                ? `❗ Data kosong atau tidak ada yang cocok dengan filter. (${filters.join(', ')})`
+                : "❗ Data CSV kosong atau rentang baris tidak valid.";
+             document.getElementById('flashcard').style.display = 'none';
+             return;
+        }
+
+        document.getElementById('totalCards').textContent = shuffledData.length;
+        document.getElementById('flashcard').style.display = 'block';
+        
+        const rowMessage = isFilteredByRow ? ` dari Baris ${rowStart + 1} hingga ${rowEnd === Infinity ? 'akhir' : rowEnd}` : '';
+        messageDiv.textContent = `✅ Berhasil memuat dan mengacak ${shuffledData.length} pasangan data${rowMessage}.`;
+        
+        displayCard(false); 
+        updateProgress();
+    }
+
+
     // --- Core Logic ---
 
     function processCSV() {
         const fileInput = document.getElementById('csvFile');
+        const url = document.getElementById('urlInput').value.trim();
         const filterTextRaw = document.getElementById('filterInput').value.trim().toLowerCase();
         const filters = filterTextRaw ? filterTextRaw.split(',').map(f => f.trim()).filter(f => f.length > 0) : [];
-        
-        displayFileName(); 
-
-        const file = fileInput.files[0];
         const messageDiv = document.getElementById('message');
         
-        if (!file) {
-            messageDiv.textContent = "❗ Pilih file CSV dulu!";
-            return;
-        }
-
         // --- LOGIKA FILTER RENTANG BARIS ---
         const rangeInput = document.getElementById('columnRangeInput').value.trim();
-        let rowStart = 0; // 0-based index (default start from the first line)
+        let rowStart = 0; 
         let rowEnd = Infinity; 
         let isFilteredByRow = false;
 
         if (rangeInput) {
             const parts = rangeInput.split('-');
             if (parts.length === 2 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1]))) {
-                // Input: 2-5 -> Start at index 1 (row 2), End at index 5 (exclusive index 6)
                 rowStart = Math.max(1, parseInt(parts[0])) - 1; 
                 rowEnd = parseInt(parts[1]); 
-                if (rowStart > rowEnd) [rowStart, rowEnd] = [rowEnd, rowStart]; // Swap if start > end
+                if (rowStart > rowEnd) [rowStart, rowEnd] = [rowEnd, rowStart]; 
                 isFilteredByRow = true;
             } else if (parts.length === 1 && !isNaN(parseInt(parts[0]))) {
-                // Input: 2- (assuming 2 to end)
                 rowStart = Math.max(1, parseInt(parts[0])) - 1; 
                 rowEnd = Infinity;
                 isFilteredByRow = true;
             }
         }
-        // Q dan A dikembalikan ke Kolom 1 dan 2
-        const qIndex = 0; 
-        const aIndex = 1;
         // ----------------------------------------
+
+        displayFileName(); 
+
+        // --- KASUS 1: Pemuatan dari URL ---
+        if (url) {
+            messageDiv.textContent = "⏳ Memuat data dari URL...";
+            // Menggunakan fetch API untuk mengambil data dari internet
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Gagal memuat: ${response.statusText} (${response.status})`);
+                    }
+                    return response.text();
+                })
+                .then(text => {
+                    handleCSVText(text, messageDiv, isFilteredByRow, rowStart, rowEnd, filters);
+                })
+                .catch(error => {
+                    messageDiv.textContent = `❌ Error memuat URL: ${error.message}. Pastikan URL publik dan CORS diizinkan.`;
+                    document.getElementById('flashcard').style.display = 'none';
+                });
+            return;
+        }
+
+        // --- KASUS 2: Pemuatan dari File Lokal ---
+        const file = fileInput.files[0];
+        if (!file) {
+            messageDiv.textContent = "❗ Pilih file CSV atau masukkan URL!";
+            return;
+        }
 
         const reader = new FileReader();
 
         reader.onload = function(e) {
-            const text = e.target.result;
-            let lines = text.trim().split('\n').filter(line => line.trim() !== '');
-
-            if (lines.length === 0) {
-                 messageDiv.textContent = "❗ File CSV kosong.";
-                 document.getElementById('flashcard').style.display = 'none';
-                 return;
-            }
-
-            const firstLine = lines[0];
-            let delimiter = ',';
-            if (firstLine.includes(';')) {
-                delimiter = ';';
-            }
-
-            // --- Terapkan Filter Baris (Vertikal) ---
-            if (isFilteredByRow) {
-                // slice(start index, end index exclusive)
-                lines = lines.slice(rowStart, rowEnd); 
-            }
-            // ----------------------------------------
-
-            // Parsing Data Mentah
-            rawData = lines.map(line => {
-                const columns = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
-                
-                // Pastikan kolom 1 dan 2 ada
-                if (columns.length > qIndex && columns.length > aIndex) {
-                    const question = columns[qIndex];
-                    const answer = columns[aIndex];
-                    return [question, answer];
-                }
-                return ['', '']; 
-            }).filter(item => item[0] !== '' && item[1] !== ''); // Filter baris kosong
-            
-            // Hapus header jika baris pertama (yang tersisa setelah filtering) bukan angka
-            if (rawData.length > 0 && isNaN(rawData[0][0])) {
-                rawData.shift(); 
-            }
-
-            // FITUR 4: Terapkan Filter Teks
-            let filteredData = rawData;
-            if (filters.length > 0) {
-                filteredData = rawData.filter(item => {
-                    const itemText = (item[0] + ' ' + item[1]).toLowerCase();
-                    return filters.some(filter => itemText.includes(filter));
-                });
-            }
-
-            shuffleArray(filteredData);
-            shuffledData = filteredData;
-            currentCardIndex = 0;
-            
-            if (shuffledData.length === 0) {
-                 messageDiv.textContent = filters.length > 0
-                    ? `❗ Data kosong atau tidak ada yang cocok dengan filter. (${filters.join(', ')})`
-                    : "❗ Data CSV kosong atau rentang baris tidak valid.";
-                 document.getElementById('flashcard').style.display = 'none';
-                 return;
-            }
-
-            document.getElementById('totalCards').textContent = shuffledData.length;
-            document.getElementById('flashcard').style.display = 'block';
-            
-            const rowMessage = isFilteredByRow ? ` dari Baris ${rowStart + 1} hingga ${rowEnd === Infinity ? 'akhir' : rowEnd}` : '';
-            messageDiv.textContent = `✅ Berhasil memuat dan mengacak ${shuffledData.length} pasangan data${rowMessage}.`;
-            
-            displayCard(false); 
-            updateProgress();
+            handleCSVText(e.target.result, messageDiv, isFilteredByRow, rowStart, rowEnd, filters);
         };
 
         reader.onerror = function() {
@@ -457,7 +491,6 @@
     function displayCard(showAnswer) {
         if (shuffledData.length === 0) return;
 
-        // Data kini berupa array [Q, A]
         const data = shuffledData[currentCardIndex];
         const answerEl = document.getElementById('cardAnswer');
         const toggleButton = document.getElementById('toggleBtn');
@@ -493,13 +526,17 @@
     }
 
     /**
-     * Logika Next Card dengan Animasi dan Looping
+     * Logika Next Card dengan Animasi dan Looping (FIXED SCROLL)
      */
     function nextCard() {
         if (shuffledData.length === 0) return;
 
         const flashcardEl = document.getElementById('flashcard');
         
+        // --- FIX SCROLL: 1. Simpan posisi scroll saat ini ---
+        const scrollPosition = window.scrollY;
+        // ---------------------------------------------------
+
         const randomEffect = animationEffects[Math.floor(Math.random() * animationEffects.length)];
         
         flashcardEl.classList.add(randomEffect);
@@ -520,6 +557,10 @@
             
             // FITUR 6: Update progress bar
             updateProgress();
+
+            // --- FIX SCROLL: 2. Kembalikan posisi scroll ---
+            window.scrollTo(0, scrollPosition);
+            // ---------------------------------------------
 
         }, 500); 
     }
