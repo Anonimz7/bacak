@@ -231,7 +231,7 @@
             </div>
             
             <div class="input-group">
-                <input type="text" id="columnRangeInput" placeholder="Rentang Kolom: Contoh 1-2 atau 5-10 (Q dan A diambil dari kolom tersebut)">
+                <input type="text" id="columnRangeInput" placeholder="Rentang Kolom: Contoh 1-2 atau 5-10 (Q dan A diambil acak dari rentang)">
             </div>
 
             <label for="csvFile" class="custom-file-upload">
@@ -337,7 +337,7 @@
             return;
         }
 
-        // --- LOGIKA BARU UNTUK RENTANG KOLOM ---
+        // --- LOGIKA PERBAIKAN RENTANG KOLOM ---
         const rangeInput = document.getElementById('columnRangeInput').value.trim();
         let colStart = 1;
         let colEnd = 2; // Default Q=Col 1, A=Col 2
@@ -349,12 +349,17 @@
                 colEnd = parseInt(parts[1]);
                 if (colStart > colEnd) [colStart, colEnd] = [colEnd, colStart]; // Swap if start > end
             } else if (parts.length === 1 && !isNaN(parseInt(parts[0]))) {
-                // Jika hanya satu angka (misalnya "5"), maka Q dan A adalah kolom yang sama
                 colStart = colEnd = Math.max(1, parseInt(parts[0])); 
             }
         }
-        const qIndex = colStart - 1; // Konversi ke index array (0-based)
-        const aIndex = colEnd - 1;   // Konversi ke index array (0-based)
+        
+        // Buat array indeks kolom (0-based) yang valid untuk diacak
+        const validColumnIndices = [];
+        for (let i = colStart - 1; i <= colEnd - 1; i++) {
+            if (i >= 0) {
+                validColumnIndices.push(i);
+            }
+        }
         // ----------------------------------------
 
         const reader = new FileReader();
@@ -375,18 +380,19 @@
                 delimiter = ';';
             }
 
-            // Parsing Data Mentah menggunakan INDEKS KOLOM BARU
+            // Parsing Data Mentah: Setiap item rawData kini berisi array data dari kolom yang valid
             rawData = lines.map(line => {
                 const columns = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
                 
-                // Pastikan kolom yang diminta tersedia
-                if (columns.length > qIndex && columns.length > aIndex) {
-                    const question = columns[qIndex];
-                    const answer = columns[aIndex];
-                    return [question, answer];
+                // Ambil semua data kolom yang berada dalam rentang yang diminta
+                const rowData = validColumnIndices.map(index => columns[index] || '').filter(d => d !== '');
+                
+                // Baris harus memiliki minimal 2 data dalam rentang kolom tersebut
+                if (rowData.length >= 2) {
+                    return rowData;
                 }
-                return ['', '']; 
-            }).filter(item => item[0] !== '' && item[1] !== ''); // Filter baris kosong
+                return null;
+            }).filter(item => item !== null); 
             
             // Hapus header jika baris pertama bukan angka
             if (rawData.length > 0 && isNaN(rawData[0][0])) {
@@ -397,7 +403,7 @@
             let filteredData = rawData;
             if (filters.length > 0) {
                 filteredData = rawData.filter(item => {
-                    const itemText = (item[0] + ' ' + item[1]).toLowerCase();
+                    const itemText = item.join(' ').toLowerCase();
                     return filters.some(filter => itemText.includes(filter));
                 });
             }
@@ -409,14 +415,14 @@
             if (shuffledData.length === 0) {
                  messageDiv.textContent = filters.length > 0
                     ? `❗ Data kosong atau tidak ada yang cocok dengan filter. (${filters.join(', ')})`
-                    : "❗ Data CSV kosong atau rentang kolom tidak valid.";
+                    : "❗ Data CSV kosong atau rentang kolom tidak valid (pastikan kolom ada dan berisi data).";
                  document.getElementById('flashcard').style.display = 'none';
                  return;
             }
 
             document.getElementById('totalCards').textContent = shuffledData.length;
             document.getElementById('flashcard').style.display = 'block';
-            messageDiv.textContent = `✅ Berhasil memuat dan mengacak ${shuffledData.length} pasangan data. Q dari Kolom ${colStart}, A dari Kolom ${colEnd}.`;
+            messageDiv.textContent = `✅ Berhasil memuat dan mengacak ${shuffledData.length} pasangan data dari Kolom ${colStart} hingga ${colEnd}.`;
             
             displayCard(false); 
             updateProgress();
@@ -437,24 +443,41 @@
     }
     
     /**
-     * TAMPILAN KARTU UTAMA
+     * TAMPILAN KARTU UTAMA (Memilih Q dan A Secara Acak dari Array Data)
      */
     function displayCard(showAnswer) {
         if (shuffledData.length === 0) return;
 
-        const data = shuffledData[currentCardIndex];
+        const rowData = shuffledData[currentCardIndex]; // rowData adalah array dari kolom yang valid
+        const numCols = rowData.length;
         const answerEl = document.getElementById('cardAnswer');
         const toggleButton = document.getElementById('toggleBtn');
+        
+        let qIndexInRow, aIndexInRow;
+        
+        // Memilih dua indeks secara acak dari array rowData
+        if (numCols >= 2) {
+            qIndexInRow = Math.floor(Math.random() * numCols);
+            do {
+                aIndexInRow = Math.floor(Math.random() * numCols);
+            } while (aIndexInRow === qIndexInRow); // Pastikan A berbeda dari Q
+        } else if (numCols === 1) {
+            qIndexInRow = 0;
+            aIndexInRow = 0; 
+        } else {
+            return; 
+        }
 
-        let q = data[0]; 
-        let a = data[1]; 
+        let q = rowData[qIndexInRow] || "Kosong";
+        let a = rowData[aIndexInRow] || "Kosong";
 
         // FITUR 1: Reverse Mode
         if (isReversed) [q, a] = [a, q];
 
-        document.getElementById('cardQuestion').textContent = q || "Kosong";
-        answerEl.textContent = a || "Kosong";
+        document.getElementById('cardQuestion').textContent = q;
+        answerEl.textContent = a;
 
+        // Visual Tampilkan/Sembunyikan Jawaban
         if (showAnswer) {
             answerEl.classList.remove('hidden-visual');
             answerEl.classList.add('visible');
