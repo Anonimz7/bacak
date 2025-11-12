@@ -499,8 +499,6 @@
         if (shuffledData.length === 0) return;
 
         const flashcardEl = document.getElementById('flashcard');
-
-        const scrollPosition = window.scrollY;
         
         const randomEffect = animationEffects[Math.floor(Math.random() * animationEffects.length)];
         
@@ -522,8 +520,6 @@
             
             // FITUR 6: Update progress bar
             updateProgress();
-
-            window.scrollTo(0, scrollPosition);
 
         }, 500); 
     }
