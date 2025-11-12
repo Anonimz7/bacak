@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CSV Shuffler & Memorizer (Colorful UI/UX & Column Filter)</title>
+    <title>CSV Shuffler & Memorizer (Colorful UI/UX & Row Filter)</title>
     <style>
         /* --- SKEMA WARNA BARU & Global Styles --- */
         :root {
-            --bg-color: #0d1b2a; /* Biru Tua */
-            --card-color: #1b2d45; /* Biru Sedang */
-            --text-color: #e0f0ff; /* Putih Kebiruan */
-            --primary-color: #00bcd4; /* Cyan Terang */
-            --secondary-color: #ff5722; /* Oranye/Aksen */
-            --load-btn-color: #4caf50; /* Hijau (Aksi Utama) */
-            --toggle-btn-color: #9c27b0; /* Ungu (Aksi Sekunder) */
+            --bg-color: #0d1b2a; 
+            --card-color: #1b2d45; 
+            --text-color: #e0f0ff; 
+            --primary-color: #00bcd4; 
+            --secondary-color: #ff5722; 
+            --load-btn-color: #4caf50; 
+            --toggle-btn-color: #9c27b0; 
             --shadow-dark: rgba(0, 0, 0, 0.7);
         }
 
@@ -231,7 +231,7 @@
             </div>
             
             <div class="input-group">
-                <input type="text" id="columnRangeInput" placeholder="Rentang Kolom: Contoh 1-2 atau 5-10 (Q dan A diambil acak dari rentang)">
+                <input type="text" id="columnRangeInput" placeholder="Rentang Baris: Contoh 2-5 (Baris ke 2 hingga ke 5, opsional)">
             </div>
 
             <label for="csvFile" class="custom-file-upload">
@@ -337,36 +337,37 @@
             return;
         }
 
-        // --- LOGIKA PERBAIKAN RENTANG KOLOM ---
+        // --- LOGIKA FILTER RENTANG BARIS ---
         const rangeInput = document.getElementById('columnRangeInput').value.trim();
-        let colStart = 1;
-        let colEnd = 2; // Default Q=Col 1, A=Col 2
+        let rowStart = 0; // 0-based index (default start from the first line)
+        let rowEnd = Infinity; 
+        let isFilteredByRow = false;
 
         if (rangeInput) {
             const parts = rangeInput.split('-');
             if (parts.length === 2 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1]))) {
-                colStart = Math.max(1, parseInt(parts[0]));
-                colEnd = parseInt(parts[1]);
-                if (colStart > colEnd) [colStart, colEnd] = [colEnd, colStart]; // Swap if start > end
+                // Input: 2-5 -> Start at index 1 (row 2), End at index 5 (exclusive index 6)
+                rowStart = Math.max(1, parseInt(parts[0])) - 1; 
+                rowEnd = parseInt(parts[1]); 
+                if (rowStart > rowEnd) [rowStart, rowEnd] = [rowEnd, rowStart]; // Swap if start > end
+                isFilteredByRow = true;
             } else if (parts.length === 1 && !isNaN(parseInt(parts[0]))) {
-                colStart = colEnd = Math.max(1, parseInt(parts[0])); 
+                // Input: 2- (assuming 2 to end)
+                rowStart = Math.max(1, parseInt(parts[0])) - 1; 
+                rowEnd = Infinity;
+                isFilteredByRow = true;
             }
         }
-        
-        // Buat array indeks kolom (0-based) yang valid untuk diacak
-        const validColumnIndices = [];
-        for (let i = colStart - 1; i <= colEnd - 1; i++) {
-            if (i >= 0) {
-                validColumnIndices.push(i);
-            }
-        }
+        // Q dan A dikembalikan ke Kolom 1 dan 2
+        const qIndex = 0; 
+        const aIndex = 1;
         // ----------------------------------------
 
         const reader = new FileReader();
 
         reader.onload = function(e) {
             const text = e.target.result;
-            const lines = text.trim().split('\n').filter(line => line.trim() !== '');
+            let lines = text.trim().split('\n').filter(line => line.trim() !== '');
 
             if (lines.length === 0) {
                  messageDiv.textContent = "❗ File CSV kosong.";
@@ -380,21 +381,27 @@
                 delimiter = ';';
             }
 
-            // Parsing Data Mentah: Setiap item rawData kini berisi array data dari kolom yang valid
+            // --- Terapkan Filter Baris (Vertikal) ---
+            if (isFilteredByRow) {
+                // slice(start index, end index exclusive)
+                lines = lines.slice(rowStart, rowEnd); 
+            }
+            // ----------------------------------------
+
+            // Parsing Data Mentah
             rawData = lines.map(line => {
                 const columns = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
                 
-                // Ambil semua data kolom yang berada dalam rentang yang diminta
-                const rowData = validColumnIndices.map(index => columns[index] || '').filter(d => d !== '');
-                
-                // Baris harus memiliki minimal 2 data dalam rentang kolom tersebut
-                if (rowData.length >= 2) {
-                    return rowData;
+                // Pastikan kolom 1 dan 2 ada
+                if (columns.length > qIndex && columns.length > aIndex) {
+                    const question = columns[qIndex];
+                    const answer = columns[aIndex];
+                    return [question, answer];
                 }
-                return null;
-            }).filter(item => item !== null); 
+                return ['', '']; 
+            }).filter(item => item[0] !== '' && item[1] !== ''); // Filter baris kosong
             
-            // Hapus header jika baris pertama bukan angka
+            // Hapus header jika baris pertama (yang tersisa setelah filtering) bukan angka
             if (rawData.length > 0 && isNaN(rawData[0][0])) {
                 rawData.shift(); 
             }
@@ -403,7 +410,7 @@
             let filteredData = rawData;
             if (filters.length > 0) {
                 filteredData = rawData.filter(item => {
-                    const itemText = item.join(' ').toLowerCase();
+                    const itemText = (item[0] + ' ' + item[1]).toLowerCase();
                     return filters.some(filter => itemText.includes(filter));
                 });
             }
@@ -415,14 +422,16 @@
             if (shuffledData.length === 0) {
                  messageDiv.textContent = filters.length > 0
                     ? `❗ Data kosong atau tidak ada yang cocok dengan filter. (${filters.join(', ')})`
-                    : "❗ Data CSV kosong atau rentang kolom tidak valid (pastikan kolom ada dan berisi data).";
+                    : "❗ Data CSV kosong atau rentang baris tidak valid.";
                  document.getElementById('flashcard').style.display = 'none';
                  return;
             }
 
             document.getElementById('totalCards').textContent = shuffledData.length;
             document.getElementById('flashcard').style.display = 'block';
-            messageDiv.textContent = `✅ Berhasil memuat dan mengacak ${shuffledData.length} pasangan data dari Kolom ${colStart} hingga ${colEnd}.`;
+            
+            const rowMessage = isFilteredByRow ? ` dari Baris ${rowStart + 1} hingga ${rowEnd === Infinity ? 'akhir' : rowEnd}` : '';
+            messageDiv.textContent = `✅ Berhasil memuat dan mengacak ${shuffledData.length} pasangan data${rowMessage}.`;
             
             displayCard(false); 
             updateProgress();
@@ -443,39 +452,24 @@
     }
     
     /**
-     * TAMPILAN KARTU UTAMA (Memilih Q dan A Secara Acak dari Array Data)
+     * TAMPILAN KARTU UTAMA (Menggunakan Kolom 1 dan 2)
      */
     function displayCard(showAnswer) {
         if (shuffledData.length === 0) return;
 
-        const rowData = shuffledData[currentCardIndex]; // rowData adalah array dari kolom yang valid
-        const numCols = rowData.length;
+        // Data kini berupa array [Q, A]
+        const data = shuffledData[currentCardIndex];
         const answerEl = document.getElementById('cardAnswer');
         const toggleButton = document.getElementById('toggleBtn');
-        
-        let qIndexInRow, aIndexInRow;
-        
-        // Memilih dua indeks secara acak dari array rowData
-        if (numCols >= 2) {
-            qIndexInRow = Math.floor(Math.random() * numCols);
-            do {
-                aIndexInRow = Math.floor(Math.random() * numCols);
-            } while (aIndexInRow === qIndexInRow); // Pastikan A berbeda dari Q
-        } else if (numCols === 1) {
-            qIndexInRow = 0;
-            aIndexInRow = 0; 
-        } else {
-            return; 
-        }
 
-        let q = rowData[qIndexInRow] || "Kosong";
-        let a = rowData[aIndexInRow] || "Kosong";
+        let q = data[0]; 
+        let a = data[1]; 
 
         // FITUR 1: Reverse Mode
         if (isReversed) [q, a] = [a, q];
 
-        document.getElementById('cardQuestion').textContent = q;
-        answerEl.textContent = a;
+        document.getElementById('cardQuestion').textContent = q || "Kosong";
+        answerEl.textContent = a || "Kosong";
 
         // Visual Tampilkan/Sembunyikan Jawaban
         if (showAnswer) {
