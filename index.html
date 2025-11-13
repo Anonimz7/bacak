@@ -28,7 +28,7 @@
             min-height: 100vh;
             padding: 20px;
             box-sizing: border-box;
-            overflow-x: hidden; /* Penting: mencegah scroll horizontal saat translateX */
+            overflow-x: hidden; 
         }
         
         #particles-js { position: fixed; width: 100%; height: 100%; top: 0; left: 0; z-index: 1; }
@@ -206,6 +206,8 @@
             border-bottom: 5px solid var(--secondary-color);
             transition: transform 0.5s ease-out, opacity 0.5s ease-out;
             transform-origin: center center; position: relative;
+            /* Perbaikan stabiliatas animasi */
+            will-change: transform, opacity; 
         }
         #cardQuestion { 
             font-size: 2.4em; 
@@ -552,6 +554,7 @@
         container.style.display = 'block';
         document.getElementById('message').textContent = `Tabel menampilkan ${rawData.length} baris data yang valid.`;
         
+        // Scroll tetap ke atas tabel saat dibuka
         container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     // ------------------------------------------
@@ -756,19 +759,22 @@
     }
 
     /**
-     * Logika Next Card dengan Animasi dan Perbaikan Stabilitas (FIXED WIDTH)
+     * Logika Next Card dengan Animasi, Kunci Dimensi, dan Scroll Absolut
      */
     function nextCard() {
         if (shuffledData.length === 0) return;
 
         const flashcardEl = document.getElementById('flashcard');
         
-        // --- PERBAIKAN STABILITAS: Kunci lebar elemen saat animasi ---
+        // 1. Kunci lebar dan tinggi (agar kontainer lain tidak bergerak)
         const currentWidth = flashcardEl.offsetWidth;
-        flashcardEl.style.width = currentWidth + 'px'; 
-        
+        const currentHeight = flashcardEl.offsetHeight;
+
+        // Terapkan dimensi tetap (fix width & height)
+        flashcardEl.style.width = currentWidth + 'px';
+        flashcardEl.style.height = currentHeight + 'px';
+
         const randomEffect = animationEffects[Math.floor(Math.random() * animationEffects.length)];
-        
         flashcardEl.classList.add(randomEffect);
         
         setTimeout(() => {
@@ -779,18 +785,20 @@
             displayCard(false); 
             
             flashcardEl.classList.add('reset-transform');
-            
             void flashcardEl.offsetHeight; 
-            
             flashcardEl.classList.remove('reset-transform');
             
             updateProgress();
 
-            // Kembalikan lebar ke normal (auto/100%)
-            flashcardEl.style.width = ''; 
+            // 2. Hapus kunci dimensi
+            flashcardEl.style.width = '';
+            flashcardEl.style.height = '';
 
-            // Scroll ke posisi awal elemen (yang paling stabil untuk bagian bawah)
-            flashcardEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // 3. SCROLL HINGGA MENTOK KE BAWAH (Absolute bottom scroll)
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: 'smooth'
+            });
 
         }, 500); 
     }
