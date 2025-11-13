@@ -104,15 +104,12 @@
             align-items: center;
         }
         #load-section input[type="checkbox"] {
-            /* Reset default input styles */
             width: 20px !important;
             height: 20px;
             display: inline-block;
             margin-right: 10px;
             vertical-align: middle;
             cursor: pointer;
-            
-            /* Custom checkmark look (optional, but makes it look better) */
             appearance: none;
             border: 2px solid var(--primary-color);
             border-radius: 4px;
@@ -121,7 +118,6 @@
         #load-section input[type="checkbox"]:checked {
             background-color: var(--primary-color);
             border-color: var(--primary-color);
-            /* Checkmark icon using unicode character */
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 12.6111L8.92308 17.5L20 6.5' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
             background-size: 100%;
             background-repeat: no-repeat;
@@ -158,6 +154,16 @@
         }
         #loadBtn:hover { 
             background-color: #43a047;
+            transform: translateY(-2px);
+        }
+        
+        /* Tombol View Data */
+        #viewDataBtn {
+            background-color: #008CBA;
+            box-shadow: 0 5px 15px rgba(0, 140, 186, 0.4);
+        }
+        #viewDataBtn:hover {
+            background-color: #007399;
             transform: translateY(-2px);
         }
 
@@ -251,7 +257,34 @@
         input[type="file"] {
             display: none;
         }
-
+        
+        /* --- VIEW DATA TABLE STYLES --- */
+        #dataTableContainer {
+            margin-top: 30px; 
+            text-align: left; 
+            padding: 15px; 
+            background: #1b2d45; 
+            border-radius: 10px;
+            border: 1px solid #334e6e;
+        }
+        #dataTableContainer table {
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 0.9em;
+        }
+        #dataTableContainer th, #dataTableContainer td {
+            padding: 10px; 
+            border: 1px solid #334e6e;
+            text-align: left;
+        }
+        #dataTableContainer th {
+            background-color: #0f2235;
+            color: var(--primary-color);
+            position: sticky; /* Agar header tabel tetap terlihat saat scroll */
+            top: 0;
+            z-index: 2;
+        }
+        
         /* Media Query untuk Mobile */
         @media (max-width: 650px) {
             .container { padding: 20px; }
@@ -307,7 +340,29 @@
             <span id="fileNameDisplay" style="display: block; margin-bottom: 15px; font-style: italic; color: #a0b0c0;">Belum ada file dipilih atau URL dimasukkan.</span>
 
             <button id="loadBtn" onclick="processCSV()">▶️ Muat Data</button>
+            <button id="viewDataBtn" onclick="toggleDataTable()" style="background-color: #008CBA; margin-top: 10px;">📋 Lihat Data Tabel</button>
         </div>
+        
+        <div id="dataTableContainer" style="display:none;">
+            <h3 style="color: var(--primary-color); margin-top: 0;">Preview Data CSV (Baris Data)</h3>
+            <p style="color: #a0b0c0; font-size: 0.9em;">Gunakan nomor baris ini untuk kolom 'Rentang Baris Data' (misalnya 1-10).</p>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Kolom 1 (Q)</th>
+                            <th>Kolom 2 (A)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+            <button onclick="toggleDataTable()" style="background-color: #cc0000; margin-top: 15px; width: 100%;">Tutup Tabel</button>
+        </div>
+        
+        <div id="message" style="color: var(--secondary-color); margin-top: 20px; font-weight: bold;"></div>
         
         <div id="progressBarContainer">
             <div id="progressBar"></div>
@@ -327,7 +382,6 @@
             <p class="counter">Kartu ke: <span id="cardCounter">0</span> dari <span id="totalCards">0</span></p>
         </div>
 
-        <div id="message" style="color: var(--secondary-color); margin-top: 20px; font-weight: bold;"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
@@ -362,8 +416,6 @@
         try {
             const response = await fetch('data.json');
             if (!response.ok) {
-                // Jangan tampilkan error jika hanya karena file.json tidak ada (normal di local host)
-                // console.log('File data.json tidak ditemukan atau gagal dimuat.');
                 return;
             }
             globalDataList = await response.json();
@@ -445,14 +497,78 @@
         document.getElementById('progressBar').style.width = percentage.toFixed(2) + '%';
         
         if (currentCardIndex === 0 && total > 0) {
-             document.getElementById('message').textContent = "🎉 Sesi belajar selesai! File diulang dari awal.";
+             const shouldShuffle = document.getElementById('shuffleMode').checked;
+             document.getElementById('message').textContent = shouldShuffle 
+                ? "🎉 Sesi belajar selesai! File diacak ulang dan diulang dari awal."
+                : "🎉 Sesi belajar selesai! File diulang dari awal (sequential).";
         } else if (currentCardIndex !== 0) {
              document.getElementById('message').textContent = "";
         }
     }
+    
+    // --- VIEW DATA TABLE FUNCTIONS (BARU) ---
+    
+    /**
+     * FUNGSI UNTUK MENAMPILKAN/MENYEMBUNYIKAN TABEL
+     */
+    function toggleDataTable() {
+        const container = document.getElementById('dataTableContainer');
+        const messageDiv = document.getElementById('message');
+
+        if (container.style.display === 'block') {
+            container.style.display = 'none';
+            messageDiv.textContent = "";
+            return;
+        }
+
+        if (rawData.length === 0) {
+            messageDiv.textContent = "❗ Muat data CSV terlebih dahulu sebelum melihat tabel.";
+            container.style.display = 'none';
+            return;
+        }
+
+        displayDataTableContent();
+    }
 
     /**
-     * FUNGSI UMUM UNTUK MEMPROSES TEXT CSV (baik dari File maupun URL)
+     * FUNGSI BARU: Menampilkan data mentah (rawData) dalam bentuk tabel bernomor.
+     */
+    function displayDataTableContent() {
+        const container = document.getElementById('dataTableContainer');
+        const tbody = document.getElementById('dataTable').querySelector('tbody');
+        
+        tbody.innerHTML = '';
+        
+        // Iterasi melalui rawData
+        rawData.forEach((item, index) => {
+            const row = tbody.insertRow();
+            const rowNumber = row.insertCell();
+            const colQ = row.insertCell();
+            const colA = row.insertCell();
+
+            rowNumber.textContent = index + 1; 
+            
+            // Tampilkan konten
+            colQ.textContent = item[0] || '—';
+            colA.textContent = item[1] || '—';
+
+            // Styling baris bergantian
+            if (index % 2 === 1) {
+                row.style.backgroundColor = '#254467';
+            }
+        });
+
+        // Tampilkan kontainer tabel
+        container.style.display = 'block';
+        document.getElementById('message').textContent = `Tabel menampilkan ${rawData.length} baris data yang valid.`;
+        
+        // Gulir ke atas agar tabel terlihat (optional)
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    // ------------------------------------------
+
+    /**
+     * FUNGSI UTAMA UNTUK MEMPROSES TEXT CSV
      */
     function handleCSVText(text, messageDiv, isFilteredByRow, rowStart, rowEnd, filters) {
         let lines = text.trim().split('\n').filter(line => line.trim() !== '');
@@ -474,32 +590,33 @@
             lines.shift(); 
         }
         
-        // --- Terapkan Filter Baris (Vertikal) ---
+        // --- Parsing Awal (sebelum filter baris) ---
+        let tempRawData = lines.map(line => {
+            const columns = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+            
+            // Pastikan kolom 1 dan 2 ada
+            if (columns.length > 0 && columns.length > 1) {
+                const question = columns[0];
+                const answer = columns[1];
+                return [question, answer];
+            }
+            return ['', '']; 
+        });
+        
+        // --- Terapkan Filter Baris (Vertikal) pada tempRawData ---
         if (isFilteredByRow) {
             // Input '1' (Baris Data ke-1, yaitu A2/B2) kini menjadi index 0
             const correctedRowStart = Math.max(0, rowStart - 1); // Jika input 1, 1-1 = 0
             const correctedRowEnd = rowEnd === Infinity ? Infinity : rowEnd; 
             
-            lines = lines.slice(correctedRowStart, correctedRowEnd); 
+            tempRawData = tempRawData.slice(correctedRowStart, correctedRowEnd); 
         }
         
-        const qIndex = 0; 
-        const aIndex = 1;
-
-        // Parsing Data Mentah (Q dari Kolom 1 dan A dari Kolom 2)
-        rawData = lines.map(line => {
-            const columns = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
-            
-            if (columns.length > qIndex && columns.length > aIndex) {
-                const question = columns[qIndex];
-                const answer = columns[aIndex];
-                return [question, answer];
-            }
-            return ['', '']; 
-        }).filter(item => item[0] !== '' && item[1] !== ''); // Filter baris kosong (penyebab kartu berkurang)
+        // --- PEMBERSIHAN AKHIR: Filter baris kosong ---
+        rawData = tempRawData.filter(item => item[0] !== '' && item[1] !== ''); 
         
-
-        // --- LOGIKA MODE ACAK/SEQUENTIAL (BARU) ---
+        
+        // --- LOGIKA MODE ACAK/SEQUENTIAL & Filter Teks ---
         let filteredData = rawData;
         
         // Terapkan Filter Teks
@@ -510,15 +627,10 @@
             });
         }
         
-        // Cek status checkbox
         const shouldShuffle = document.getElementById('shuffleMode').checked;
         if (shouldShuffle) {
             shuffleArray(filteredData);
-            document.getElementById('message').textContent = "✅ Data berhasil dimuat dan diacak.";
-        } else {
-             document.getElementById('message').textContent = "✅ Data berhasil dimuat dalam urutan sequential.";
         }
-        // ------------------------------------------
 
         shuffledData = filteredData;
         currentCardIndex = 0;
@@ -535,7 +647,7 @@
         document.getElementById('flashcard').style.display = 'block';
         
         const modeStatus = shouldShuffle ? "acak" : "sequential";
-        const displayStart = rowStart;
+        const displayStart = isFilteredByRow ? rowStart : 1;
         const rowMessage = isFilteredByRow ? ` dari Baris Data ${displayStart} hingga ${rowEnd === Infinity ? 'akhir' : rowEnd}` : '';
         messageDiv.textContent = `✅ Berhasil memuat ${shuffledData.length} pasangan data dalam mode ${modeStatus}${rowMessage}.`;
         
@@ -547,15 +659,17 @@
     // --- Core Logic ---
 
     function processCSV() {
-        // [Fungsi processCSV tetap sama, hanya memanggil handleCSVText]
         const fileInput = document.getElementById('csvFile');
         const url = document.getElementById('urlInput').value.trim();
         const filterTextRaw = document.getElementById('filterInput').value.trim().toLowerCase();
         const filters = filterTextRaw ? filterTextRaw.split(',').map(f => f.trim()).filter(f => f.length > 0) : [];
         const messageDiv = document.getElementById('message');
         
+        // Sembunyikan tabel preview saat proses baru dimulai
+        document.getElementById('dataTableContainer').style.display = 'none';
+
         const rangeInput = document.getElementById('columnRangeInput').value.trim();
-        let rowStart = 1; // Default: mulai dari baris data ke-1 (A2/B2)
+        let rowStart = 1; 
         let rowEnd = Infinity; 
         let isFilteredByRow = false;
 
@@ -666,9 +780,7 @@
 
         const flashcardEl = document.getElementById('flashcard');
         
-        // --- FIX SCROLL: 1. Simpan posisi scroll saat ini ---
         const scrollPosition = window.scrollY;
-        // ---------------------------------------------------
 
         const randomEffect = animationEffects[Math.floor(Math.random() * animationEffects.length)];
         
@@ -677,7 +789,6 @@
         setTimeout(() => {
             flashcardEl.classList.remove(randomEffect);
 
-            // LOGIKA LOOPING: Kembali ke 0 jika sudah di akhir.
             currentCardIndex = (currentCardIndex + 1) % shuffledData.length;
 
             displayCard(false); 
@@ -688,12 +799,9 @@
             
             flashcardEl.classList.remove('reset-transform');
             
-            // FITUR 6: Update progress bar
             updateProgress();
 
-            // --- FIX SCROLL: 2. Kembalikan posisi scroll ---
             window.scrollTo(0, scrollPosition);
-            // ---------------------------------------------
 
         }, 500); 
     }
