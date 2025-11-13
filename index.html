@@ -236,7 +236,7 @@
         
         /* KELAS UNTUK ANIMASI */
         .reset-transform { opacity: 0 !important; transform: scale(0.8) !important; }
-        .slide-out-right { opacity: 0; transform: translateX(100%) scale(0.9); }
+        /* .slide-out-right { opacity: 0; transform: translateX(100%) scale(0.9); }*/
         .slide-out-left { opacity: 0; transform: translateX(-100%) scale(0.9); }
         .zoom-out { opacity: 0; transform: scale(0.6) rotateZ(-5deg); }
         .flip-out { opacity: 0; transform: rotateY(90deg); }
@@ -798,12 +798,11 @@
             flashcardEl.classList.remove('reset-transform');
             
             updateProgress();
-
-            window.scrollBy(0, 100);
         }, 500); 
     }
 </script>
 
 </body>
 </html>
+
 
