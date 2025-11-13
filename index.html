@@ -280,7 +280,7 @@
         #dataTableContainer th {
             background-color: #0f2235;
             color: var(--primary-color);
-            position: sticky; /* Agar header tabel tetap terlihat saat scroll */
+            position: sticky; 
             top: 0;
             z-index: 2;
         }
@@ -506,11 +506,8 @@
         }
     }
     
-    // --- VIEW DATA TABLE FUNCTIONS (BARU) ---
+    // --- VIEW DATA TABLE FUNCTIONS ---
     
-    /**
-     * FUNGSI UNTUK MENAMPILKAN/MENYEMBUNYIKAN TABEL
-     */
     function toggleDataTable() {
         const container = document.getElementById('dataTableContainer');
         const messageDiv = document.getElementById('message');
@@ -530,39 +527,32 @@
         displayDataTableContent();
     }
 
-    /**
-     * FUNGSI BARU: Menampilkan data mentah (rawData) dalam bentuk tabel bernomor.
-     */
     function displayDataTableContent() {
         const container = document.getElementById('dataTableContainer');
         const tbody = document.getElementById('dataTable').querySelector('tbody');
         
         tbody.innerHTML = '';
         
-        // Iterasi melalui rawData
         rawData.forEach((item, index) => {
             const row = tbody.insertRow();
             const rowNumber = row.insertCell();
             const colQ = row.insertCell();
             const colA = row.insertCell();
 
+            // Nomor baris: Dimulai dari 1 (merujuk ke Baris Data ke-1)
             rowNumber.textContent = index + 1; 
             
-            // Tampilkan konten
             colQ.textContent = item[0] || '—';
             colA.textContent = item[1] || '—';
 
-            // Styling baris bergantian
             if (index % 2 === 1) {
                 row.style.backgroundColor = '#254467';
             }
         });
 
-        // Tampilkan kontainer tabel
         container.style.display = 'block';
         document.getElementById('message').textContent = `Tabel menampilkan ${rawData.length} baris data yang valid.`;
         
-        // Gulir ke atas agar tabel terlihat (optional)
         container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     // ------------------------------------------
@@ -585,7 +575,7 @@
             delimiter = ';';
         }
 
-        // --- Hapus Baris Header (Baris 1) ---
+        // --- Hapus Baris Header (Baris 1/A1) ---
         if (lines.length > 0) {
             lines.shift(); 
         }
@@ -594,7 +584,6 @@
         let tempRawData = lines.map(line => {
             const columns = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
             
-            // Pastikan kolom 1 dan 2 ada
             if (columns.length > 0 && columns.length > 1) {
                 const question = columns[0];
                 const answer = columns[1];
@@ -605,14 +594,15 @@
         
         // --- Terapkan Filter Baris (Vertikal) pada tempRawData ---
         if (isFilteredByRow) {
-            // Input '1' (Baris Data ke-1, yaitu A2/B2) kini menjadi index 0
-            const correctedRowStart = Math.max(0, rowStart - 1); // Jika input 1, 1-1 = 0
+            // Input '1' (Baris Data ke-1, yaitu A2/B2) menjadi index 0
+            const correctedRowStart = Math.max(0, rowStart - 1); 
             const correctedRowEnd = rowEnd === Infinity ? Infinity : rowEnd; 
             
             tempRawData = tempRawData.slice(correctedRowStart, correctedRowEnd); 
         }
         
         // --- PEMBERSIHAN AKHIR: Filter baris kosong ---
+        // rawData menyimpan data sequential yang valid untuk View Tabel.
         rawData = tempRawData.filter(item => item[0] !== '' && item[1] !== ''); 
         
         
@@ -665,7 +655,6 @@
         const filters = filterTextRaw ? filterTextRaw.split(',').map(f => f.trim()).filter(f => f.length > 0) : [];
         const messageDiv = document.getElementById('message');
         
-        // Sembunyikan tabel preview saat proses baru dimulai
         document.getElementById('dataTableContainer').style.display = 'none';
 
         const rangeInput = document.getElementById('columnRangeInput').value.trim();
@@ -690,7 +679,6 @@
 
         displayFileName(); 
         
-        // --- KASUS 1: Pemuatan dari URL ---
         if (url) {
             messageDiv.textContent = "⏳ Memuat data dari URL...";
             fetch(url)
@@ -710,7 +698,6 @@
             return;
         }
 
-        // --- KASUS 2: Pemuatan dari File Lokal ---
         const file = fileInput.files[0];
         if (!file) {
             messageDiv.textContent = "❗ Pilih file CSV atau masukkan URL/pilih dari daftar!";
@@ -773,15 +760,13 @@
     }
 
     /**
-     * Logika Next Card dengan Animasi dan Looping (FIXED SCROLL)
+     * Logika Next Card dengan Animasi dan SCROLL OTOMATIS KE FLASHCARD
      */
     function nextCard() {
         if (shuffledData.length === 0) return;
 
         const flashcardEl = document.getElementById('flashcard');
         
-        const scrollPosition = window.scrollY;
-
         const randomEffect = animationEffects[Math.floor(Math.random() * animationEffects.length)];
         
         flashcardEl.classList.add(randomEffect);
@@ -801,7 +786,8 @@
             
             updateProgress();
 
-            window.scrollTo(0, scrollPosition);
+            // SCROLL OTOMATIS KE ELEMEN FLASHCARD (mentok ke bawah)
+            flashcardEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
         }, 500); 
     }
