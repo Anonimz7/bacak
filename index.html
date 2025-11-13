@@ -28,7 +28,8 @@
             min-height: 100vh;
             padding: 20px;
             box-sizing: border-box;
-            overflow-x: hidden;
+            /* FIX: Pertahankan overflow-x: hidden; di body */
+            overflow-x: hidden; 
         }
         
         #particles-js { position: fixed; width: 100%; height: 100%; top: 0; left: 0; z-index: 1; }
@@ -45,6 +46,8 @@
             box-shadow: 0 15px 40px var(--shadow-dark), 0 0 0 1px rgba(255, 255, 255, 0.05);
             text-align: center;
             backdrop-filter: blur(5px);
+            /* FIX: Tambahkan overflow-x: hidden; di container juga untuk jaga-jaga */
+            overflow-x: hidden; 
         }
 
         h1 { color: var(--primary-color); font-size: 2.5em; margin-bottom: 20px; text-shadow: 0 3px 5px rgba(0, 0, 0, 0.4); font-weight: 800; }
@@ -206,6 +209,8 @@
             border-bottom: 5px solid var(--secondary-color);
             transition: transform 0.5s ease-out, opacity 0.5s ease-out;
             transform-origin: center center; position: relative;
+            /* FIX: Tambahkan will-change untuk performa animasi yang lebih baik */
+            will-change: transform, opacity;
         }
         #cardQuestion { 
             font-size: 2.4em; 
@@ -236,10 +241,29 @@
         
         /* KELAS UNTUK ANIMASI */
         .reset-transform { opacity: 0 !important; transform: scale(0.8) !important; }
-        /* .slide-out-right { opacity: 0; transform: translateX(100%) scale(0.9); }*/
+        .slide-out-right { opacity: 0; transform: translateX(100%) scale(0.9); }
         .slide-out-left { opacity: 0; transform: translateX(-100%) scale(0.9); }
         .zoom-out { opacity: 0; transform: scale(0.6) rotateZ(-5deg); }
         .flip-out { opacity: 0; transform: rotateY(90deg); }
+        
+        /* FIX BARU: Memosisikan kartu secara absolut dan memusatkannya 
+           untuk mengeluarkannya dari document flow selama transisi.
+           Ini mencegah browser menghitung ulang posisi scroll vertikal. */
+        .transition-fix {
+            position: absolute !important;
+            top: 0; /* Sesuaikan jika container memiliki padding-top */
+            left: 50%;
+            transform: translateX(-50%); /* Memastikan kartu tetap di tengah */
+            width: 100%;
+            max-width: 650px; /* Sesuai dengan max-width container */
+            box-sizing: border-box;
+            padding: 40px; /* Sesuai dengan padding flashcard */
+        }
+        /* Penyesuaian container agar memiliki tinggi saat flashcard di-absolute-kan */
+        .container.has-transition-fix {
+            min-height: 380px; /* Sesuaikan sesuai kebutuhan/tinggi flashcard min */
+        }
+
 
         .counter { margin-top: 20px; color: #a0b0c0; font-size: 1em; font-style: italic; }
         
@@ -779,23 +803,33 @@
         if (shuffledData.length === 0) return;
 
         const flashcardEl = document.getElementById('flashcard');
-
+        const containerEl = document.querySelector('.container');
+        
         const randomEffect = animationEffects[Math.floor(Math.random() * animationEffects.length)];
         
+        // LANGKAH 1 (FIX): Tambahkan kelas transisi-fix sebelum animasi
+        flashcardEl.classList.add('transition-fix');
+        containerEl.classList.add('has-transition-fix');
+
+        // Panggil animasi
         flashcardEl.classList.add(randomEffect);
         
         setTimeout(() => {
+            // LANGKAH 2: Hapus kelas animasi
             flashcardEl.classList.remove(randomEffect);
 
+            // Perbarui data kartu
             currentCardIndex = (currentCardIndex + 1) % shuffledData.length;
-
             displayCard(false); 
             
+            // LANGKAH 3: Terapkan dan hapus reset-transform untuk 'blink' visual (sudah ada)
             flashcardEl.classList.add('reset-transform');
-            
             void flashcardEl.offsetHeight; 
-            
             flashcardEl.classList.remove('reset-transform');
+            
+            // LANGKAH 4 (FIX): Hapus kelas transisi-fix setelah kartu baru muncul
+            flashcardEl.classList.remove('transition-fix');
+            containerEl.classList.remove('has-transition-fix');
             
             updateProgress();
         }, 500); 
@@ -804,5 +838,3 @@
 
 </body>
 </html>
-
-
