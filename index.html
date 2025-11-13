@@ -236,7 +236,7 @@
         
         /* KELAS UNTUK ANIMASI */
         .reset-transform { opacity: 0 !important; transform: scale(0.8) !important; }
-        .slide-out-right { opacity: 0; transform: translateX(100%) scale(0.9); }
+        /*.slide-out-right { opacity: 0; transform: translateX(100%) scale(0.9); }*/
         .slide-out-left { opacity: 0; transform: translateX(-100%) scale(0.9); }
         .zoom-out { opacity: 0; transform: scale(0.6) rotateZ(-5deg); }
         .flip-out { opacity: 0; transform: rotateY(90deg); }
@@ -408,7 +408,8 @@
     let isReversed = false; 
     let globalDataList = []; 
     
-    const animationEffects = ['slide-out-right', 'slide-out-left', 'zoom-out', 'flip-out'];
+	// --'slide-out-right',-- 
+    const animationEffects = ['slide-out-left', 'zoom-out', 'flip-out'];
     
     // --- Data List Functions ---
     async function loadDataList() {
@@ -779,9 +780,6 @@
         if (shuffledData.length === 0) return;
 
         const flashcardEl = document.getElementById('flashcard');
-        
-        // FIX SCROLL: Simpan posisi scroll saat ini
-        const currentScrollY = window.scrollY;
 
         const randomEffect = animationEffects[Math.floor(Math.random() * animationEffects.length)];
         
@@ -800,9 +798,6 @@
             
             flashcardEl.classList.remove('reset-transform');
             
-            // FIX SCROLL: Kembalikan posisi scroll setelah animasi
-            window.scrollTo(0, currentScrollY);
-            
             updateProgress();
         }, 500); 
     }
@@ -810,3 +805,5 @@
 
 </body>
 </html>
+
+
