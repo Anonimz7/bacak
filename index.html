@@ -539,7 +539,6 @@
             const colQ = row.insertCell();
             const colA = row.insertCell();
 
-            // Nomor baris: Dimulai dari 1 (merujuk ke Baris Data ke-1)
             rowNumber.textContent = index + 1; 
             
             colQ.textContent = item[0] || '—';
@@ -602,7 +601,6 @@
         }
         
         // --- PEMBERSIHAN AKHIR: Filter baris kosong ---
-        // rawData menyimpan data sequential yang valid untuk View Tabel.
         rawData = tempRawData.filter(item => item[0] !== '' && item[1] !== ''); 
         
         
@@ -786,8 +784,9 @@
             
             updateProgress();
 
-            // SCROLL OTOMATIS KE ELEMEN FLASHCARD (mentok ke bawah)
-            flashcardEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            // PERBAIKAN SCROLL: Menggunakan 'start' untuk memastikan elemen berada di bagian atas viewport (jika sudah di bawah) 
+            // atau memastikan bagian bawah elemen terlihat di viewport.
+            flashcardEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
         }, 500); 
     }
