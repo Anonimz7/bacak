@@ -28,7 +28,7 @@
             min-height: 100vh;
             padding: 20px;
             box-sizing: border-box;
-            overflow-x: hidden; 
+            overflow-x: hidden;
         }
         
         #particles-js { position: fixed; width: 100%; height: 100%; top: 0; left: 0; z-index: 1; }
@@ -206,8 +206,6 @@
             border-bottom: 5px solid var(--secondary-color);
             transition: transform 0.5s ease-out, opacity 0.5s ease-out;
             transform-origin: center center; position: relative;
-            /* Perbaikan stabiliatas animasi */
-            will-change: transform, opacity; 
         }
         #cardQuestion { 
             font-size: 2.4em; 
@@ -282,7 +280,7 @@
         #dataTableContainer th {
             background-color: #0f2235;
             color: var(--primary-color);
-            position: sticky; 
+            position: sticky; /* Agar header tabel tetap terlihat saat scroll */
             top: 0;
             z-index: 2;
         }
@@ -412,7 +410,7 @@
     
     const animationEffects = ['slide-out-right', 'slide-out-left', 'zoom-out', 'flip-out'];
     
-    // --- Data List Functions (TIDAK BERUBAH) ---
+    // --- Data List Functions ---
     async function loadDataList() {
         const messageDiv = document.getElementById('message');
         try {
@@ -465,7 +463,7 @@
         }
     }
 
-    // --- Helper Functions (TIDAK BERUBAH) ---
+    // --- Helper Functions ---
     function displayFileName() {
         const fileInput = document.getElementById('csvFile');
         const display = document.getElementById('fileNameDisplay');
@@ -508,8 +506,11 @@
         }
     }
     
-    // --- VIEW DATA TABLE FUNCTIONS (TIDAK BERUBAH) ---
+    // --- VIEW DATA TABLE FUNCTIONS (BARU) ---
     
+    /**
+     * FUNGSI UNTUK MENAMPILKAN/MENYEMBUNYIKAN TABEL
+     */
     function toggleDataTable() {
         const container = document.getElementById('dataTableContainer');
         const messageDiv = document.getElementById('message');
@@ -529,12 +530,16 @@
         displayDataTableContent();
     }
 
+    /**
+     * FUNGSI BARU: Menampilkan data mentah (rawData) dalam bentuk tabel bernomor.
+     */
     function displayDataTableContent() {
         const container = document.getElementById('dataTableContainer');
         const tbody = document.getElementById('dataTable').querySelector('tbody');
         
         tbody.innerHTML = '';
         
+        // Iterasi melalui rawData
         rawData.forEach((item, index) => {
             const row = tbody.insertRow();
             const rowNumber = row.insertCell();
@@ -543,24 +548,27 @@
 
             rowNumber.textContent = index + 1; 
             
+            // Tampilkan konten
             colQ.textContent = item[0] || '—';
             colA.textContent = item[1] || '—';
 
+            // Styling baris bergantian
             if (index % 2 === 1) {
                 row.style.backgroundColor = '#254467';
             }
         });
 
+        // Tampilkan kontainer tabel
         container.style.display = 'block';
         document.getElementById('message').textContent = `Tabel menampilkan ${rawData.length} baris data yang valid.`;
         
-        // Scroll tetap ke atas tabel saat dibuka
+        // Gulir ke atas agar tabel terlihat (optional)
         container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     // ------------------------------------------
 
     /**
-     * FUNGSI UTAMA UNTUK MEMPROSES TEXT CSV (TIDAK BERUBAH)
+     * FUNGSI UTAMA UNTUK MEMPROSES TEXT CSV
      */
     function handleCSVText(text, messageDiv, isFilteredByRow, rowStart, rowEnd, filters) {
         let lines = text.trim().split('\n').filter(line => line.trim() !== '');
@@ -577,7 +585,7 @@
             delimiter = ';';
         }
 
-        // --- Hapus Baris Header (Baris 1/A1) ---
+        // --- Hapus Baris Header (Baris 1) ---
         if (lines.length > 0) {
             lines.shift(); 
         }
@@ -586,6 +594,7 @@
         let tempRawData = lines.map(line => {
             const columns = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
             
+            // Pastikan kolom 1 dan 2 ada
             if (columns.length > 0 && columns.length > 1) {
                 const question = columns[0];
                 const answer = columns[1];
@@ -596,7 +605,8 @@
         
         // --- Terapkan Filter Baris (Vertikal) pada tempRawData ---
         if (isFilteredByRow) {
-            const correctedRowStart = Math.max(0, rowStart - 1); 
+            // Input '1' (Baris Data ke-1, yaitu A2/B2) kini menjadi index 0
+            const correctedRowStart = Math.max(0, rowStart - 1); // Jika input 1, 1-1 = 0
             const correctedRowEnd = rowEnd === Infinity ? Infinity : rowEnd; 
             
             tempRawData = tempRawData.slice(correctedRowStart, correctedRowEnd); 
@@ -609,6 +619,7 @@
         // --- LOGIKA MODE ACAK/SEQUENTIAL & Filter Teks ---
         let filteredData = rawData;
         
+        // Terapkan Filter Teks
         if (filters.length > 0) {
             filteredData = rawData.filter(item => {
                 const itemText = (item[0] + ' ' + item[1]).toLowerCase();
@@ -645,7 +656,7 @@
     }
 
 
-    // --- Core Logic (TIDAK BERUBAH) ---
+    // --- Core Logic ---
 
     function processCSV() {
         const fileInput = document.getElementById('csvFile');
@@ -654,6 +665,7 @@
         const filters = filterTextRaw ? filterTextRaw.split(',').map(f => f.trim()).filter(f => f.length > 0) : [];
         const messageDiv = document.getElementById('message');
         
+        // Sembunyikan tabel preview saat proses baru dimulai
         document.getElementById('dataTableContainer').style.display = 'none';
 
         const rangeInput = document.getElementById('columnRangeInput').value.trim();
@@ -678,6 +690,7 @@
 
         displayFileName(); 
         
+        // --- KASUS 1: Pemuatan dari URL ---
         if (url) {
             messageDiv.textContent = "⏳ Memuat data dari URL...";
             fetch(url)
@@ -697,6 +710,7 @@
             return;
         }
 
+        // --- KASUS 2: Pemuatan dari File Lokal ---
         const file = fileInput.files[0];
         if (!file) {
             messageDiv.textContent = "❗ Pilih file CSV atau masukkan URL/pilih dari daftar!";
@@ -716,7 +730,7 @@
         reader.readAsText(file);
     }
 
-    // FITUR 1: Toggle Reverse Mode (TIDAK BERUBAH)
+    // FITUR 1: Toggle Reverse Mode
     function toggleReverseMode() {
         isReversed = !isReversed;
         document.getElementById('reverseBtn').textContent = isReversed ? "Mode: Jawaban (A/Q)" : "Mode: Pertanyaan (Q/A)";
@@ -759,22 +773,15 @@
     }
 
     /**
-     * Logika Next Card dengan Animasi, Kunci Dimensi, dan Scroll Absolut
+     * Logika Next Card dengan Animasi dan Looping (FIXED SCROLL)
      */
     function nextCard() {
         if (shuffledData.length === 0) return;
 
         const flashcardEl = document.getElementById('flashcard');
-        
-        // 1. Kunci lebar dan tinggi (agar kontainer lain tidak bergerak)
-        const currentWidth = flashcardEl.offsetWidth;
-        const currentHeight = flashcardEl.offsetHeight;
-
-        // Terapkan dimensi tetap (fix width & height)
-        flashcardEl.style.width = currentWidth + 'px';
-        flashcardEl.style.height = currentHeight + 'px';
 
         const randomEffect = animationEffects[Math.floor(Math.random() * animationEffects.length)];
+        
         flashcardEl.classList.add(randomEffect);
         
         setTimeout(() => {
@@ -785,20 +792,12 @@
             displayCard(false); 
             
             flashcardEl.classList.add('reset-transform');
+            
             void flashcardEl.offsetHeight; 
+            
             flashcardEl.classList.remove('reset-transform');
             
             updateProgress();
-
-            // 2. Hapus kunci dimensi
-            flashcardEl.style.width = '';
-            flashcardEl.style.height = '';
-
-            // 3. SCROLL HINGGA MENTOK KE BAWAH (Absolute bottom scroll)
-            window.scrollTo({
-                top: document.body.scrollHeight,
-                behavior: 'smooth'
-            });
 
         }, 500); 
     }
